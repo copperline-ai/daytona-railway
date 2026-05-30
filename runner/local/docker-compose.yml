@@ -1,0 +1,56 @@
+name: daytona-local-runner
+
+services:
+  # The Daytona runner. Ships its own dockerd (Docker-in-Docker), so it needs
+  # to run privileged with a persistent /var/lib/docker volume.
+  runner:
+    image: daytonaio/daytona-runner:latest
+    privileged: true
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - API_PORT=3003
+      - LOG_FILE_PATH=/home/daytona/runner/runner.log
+      - RUNNER_DOMAIN=${PUBLIC_RUNNER_URL}
+      - SSH_GATEWAY_ENABLE=false
+    ports:
+      - "3003:3003"
+    volumes:
+      - runner-docker:/var/lib/docker
+
+  # Local Docker registry the runner tags/pushes snapshot images to and pulls
+  # from. Exposed through the tunnel (see cloudflared) so the Railway Daytona
+  # API can reach it too. htpasswd auth over the tunnel's HTTPS; filesystem
+  # storage on a local volume (self-contained — no MinIO dependency).
+  registry:
+    image: registry:2.8.3
+    restart: unless-stopped
+    environment:
+      - REGISTRY_AUTH=htpasswd
+      - REGISTRY_AUTH_HTPASSWD_REALM=Daytona Local Registry
+      - REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd
+      - REGISTRY_STORAGE_DELETE_ENABLED=true
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./registry/htpasswd:/auth/htpasswd:ro
+      - registry-data:/var/lib/registry
+
+  # One named Cloudflare tunnel, two ingress hostnames (runner + registry).
+  # Requires a Cloudflare account + a domain (see README). For throwaway
+  # runner-only testing you can skip this and run a quick tunnel by hand
+  # (`cloudflared tunnel --url http://localhost:3003`) — but the REGISTRY needs
+  # a STABLE hostname, so the named tunnel is the supported path.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
+    depends_on:
+      - runner
+      - registry
+
+volumes:
+  runner-docker:
+  registry-data:

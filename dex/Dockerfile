@@ -6,5 +6,4 @@ COPY entrypoint.sh /entrypoint.sh
 USER root
 RUN apk add --no-cache gettext && chmod +x /entrypoint.sh
 
-USER dex
 ENTRYPOINT ["/entrypoint.sh"]

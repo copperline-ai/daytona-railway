@@ -1,15 +1,9 @@
 issuer: $DEX_ISSUER_URL
 
 storage:
-  type: postgres
+  type: sqlite3
   config:
-    host: $DEX_DB_HOST
-    port: $DEX_DB_PORT
-    database: $DEX_DB_DATABASE
-    user: $DEX_DB_USERNAME
-    password: $DEX_DB_PASSWORD
-    ssl:
-      mode: require
+    file: /var/dex/dex.db
 
 web:
   http: 0.0.0.0:5556

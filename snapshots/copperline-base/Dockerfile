@@ -4,6 +4,7 @@ USER root
 
 ARG GH_VERSION=2.93.0
 ARG INFISICAL_VERSION=0.38.0
+ARG RAILWAY_VERSION=4.66.0
 
 # git (gh dependency) + GitHub CLI
 RUN apt-get update && apt-get install -y --no-install-recommends git && \
@@ -18,5 +19,10 @@ RUN curl -fsSL "https://dl.cloudsmith.io/public/infisical/infisical-cli/deb/ubun
       -o /tmp/infisical.deb && \
     dpkg -i /tmp/infisical.deb && \
     rm /tmp/infisical.deb
+
+# Railway CLI
+RUN curl -fsSL "https://github.com/railwayapp/cli/releases/download/v${RAILWAY_VERSION}/railway-v${RAILWAY_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+      | tar -xz -C /usr/local/bin railway && \
+    chmod +x /usr/local/bin/railway
 
 USER daytona

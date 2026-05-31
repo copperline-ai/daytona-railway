@@ -54,5 +54,8 @@ jobs:
             exit 1
           fi
           daytona snapshot delete "${{ matrix.image }}" 2>/dev/null || true
-          sleep 3
-          daytona snapshot create "${{ matrix.image }}" --image "${{ matrix.image }}"
+          for i in $(seq 1 10); do
+            sleep 3
+            daytona snapshot create "${{ matrix.image }}" --image "${{ matrix.image }}" && break
+            echo "Attempt $i failed (delete still propagating), retrying..."
+          done

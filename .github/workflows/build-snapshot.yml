@@ -1,0 +1,54 @@
+name: Build Daytona Snapshot
+
+on:
+  push:
+    paths:
+      - "snapshots/**"
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        include:
+          - name: copperline-base
+            image: ghcr.io/copperline-ai/sandbox:copperline-base
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: snapshots/${{ matrix.name }}
+          file: snapshots/${{ matrix.name }}/Dockerfile
+          push: true
+          tags: ${{ matrix.image }}
+
+      - name: Install Daytona CLI
+        run: |
+          curl -fsSL "https://github.com/daytonaio/daytona/releases/download/v0.183.0/daytona-linux-amd64" \
+            -o /usr/local/bin/daytona && chmod +x /usr/local/bin/daytona
+
+      - name: Register snapshot with Daytona
+        env:
+          DAYTONA_API_URL: ${{ secrets.DAYTONA_API_URL }}
+          DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
+        run: |
+          DAYTONA_API_URL=$DAYTONA_API_URL daytona login --api-key "$DAYTONA_API_KEY"
+          daytona snapshot delete "${{ matrix.image }}" 2>/dev/null || true
+          daytona snapshot create "${{ matrix.image }}" --image "${{ matrix.image }}"

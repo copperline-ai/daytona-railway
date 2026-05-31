@@ -49,6 +49,11 @@ jobs:
           DAYTONA_API_URL: ${{ secrets.DAYTONA_API_URL }}
           DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
         run: |
+          if [[ -z "$DAYTONA_API_URL" || -z "$DAYTONA_API_KEY" ]]; then
+            echo "::error::DAYTONA_API_URL and DAYTONA_API_KEY secrets must be set in repo settings"
+            exit 1
+          fi
           DAYTONA_API_URL=$DAYTONA_API_URL daytona login --api-key "$DAYTONA_API_KEY"
           daytona snapshot delete "${{ matrix.image }}" 2>/dev/null || true
+          sleep 3
           daytona snapshot create "${{ matrix.image }}" --image "${{ matrix.image }}"

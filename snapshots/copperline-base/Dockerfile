@@ -52,7 +52,7 @@ RUN mkdir -p "${NVM_DIR}" && \
 # Bun + coding tools
 RUN curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip" \
       -o /tmp/bun.zip && \
-    mkdir -p "${BUN_INSTALL}" && \
+    mkdir -p "${BUN_INSTALL}/bin" && \
     apt-get update && apt-get install -y --no-install-recommends unzip && \
     unzip -q /tmp/bun.zip -d /tmp && \
     mv /tmp/bun-linux-x64/bun "${BUN_INSTALL}/bin/bun" && \

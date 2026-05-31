@@ -7,6 +7,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      snapshot_name:
+        description: "Optional snapshot name to build (default: all)"
+        required: false
+        type: string
 
 jobs:
   build:
@@ -24,7 +29,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Determine selected snapshot
+        id: select
+        shell: bash
+        run: |
+          selected="${{ github.event.inputs.snapshot_name || '' }}"
+          if [[ -n "$selected" && "$selected" != "${{ matrix.name }}" ]]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping ${{ matrix.name }} because dispatch requested '$selected'."
+            exit 0
+          fi
+          echo "run=true" >> "$GITHUB_OUTPUT"
+
       - name: Log in to ghcr.io
+        if: steps.select.outputs.run == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -32,6 +50,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push ${{ matrix.name }}
+        if: steps.select.outputs.run == 'true'
         uses: docker/build-push-action@v6
         with:
           context: snapshots/${{ matrix.name }}
@@ -40,22 +59,65 @@ jobs:
           tags: ${{ matrix.image }}
 
       - name: Install Daytona CLI
+        if: steps.select.outputs.run == 'true'
         run: |
           curl -fsSL "https://github.com/daytonaio/daytona/releases/download/v0.183.0/daytona-linux-amd64" \
             -o /usr/local/bin/daytona && chmod +x /usr/local/bin/daytona
 
-      - name: Register snapshot with Daytona
+      - name: Pre-flight Daytona health check
+        if: steps.select.outputs.run == 'true'
         env:
           DAYTONA_API_URL: ${{ secrets.DAYTONA_API_URL }}
           DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
+        shell: bash
         run: |
           if [[ -z "$DAYTONA_API_URL" || -z "$DAYTONA_API_KEY" ]]; then
             echo "::error::DAYTONA_API_URL and DAYTONA_API_KEY secrets must be set in repo settings"
             exit 1
           fi
-          daytona snapshot delete "${{ matrix.image }}" 2>/dev/null || true
-          for i in $(seq 1 10); do
-            sleep 3
-            daytona snapshot create "${{ matrix.image }}" --image "${{ matrix.image }}" && break
-            echo "Attempt $i failed (delete still propagating), retrying..."
+          daytona snapshot list >/dev/null
+
+      - name: Register snapshot with Daytona
+        if: steps.select.outputs.run == 'true'
+        env:
+          DAYTONA_API_URL: ${{ secrets.DAYTONA_API_URL }}
+          DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          snapshot="${{ matrix.image }}"
+          max_attempts=6
+          attempt=1
+          delay=2
+
+          while (( attempt <= max_attempts )); do
+            echo "Registering snapshot '$snapshot' (attempt ${attempt}/${max_attempts})"
+            output="$(daytona snapshot create "$snapshot" --image "$snapshot" 2>&1)" && {
+              echo "$output"
+              exit 0
+            }
+
+            echo "$output"
+
+            if grep -qi "already exists" <<< "$output"; then
+              echo "Snapshot already exists, deleting stale record and retrying..."
+              daytona snapshot delete "$snapshot" || true
+            fi
+
+            if (( attempt == max_attempts )); then
+              echo "::error::Failed to register snapshot '$snapshot' after ${max_attempts} attempts."
+              exit 1
+            fi
+
+            echo "Retrying in ${delay}s..."
+            sleep "$delay"
+            delay=$((delay * 2))
+            attempt=$((attempt + 1))
           done
+
+      - name: Error recovery details
+        if: failure() && steps.select.outputs.run == 'true'
+        run: |
+          echo "Snapshot registration failed for ${{ matrix.name }} (${{ matrix.image }})"
+          echo "Re-run this workflow from Actions after verifying Daytona service health and credentials."

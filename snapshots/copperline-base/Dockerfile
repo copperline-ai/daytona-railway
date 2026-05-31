@@ -63,7 +63,7 @@ RUN curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERS
     rm -rf /var/lib/apt/lists/*
 
 # Coding agent and format/lint tools via bun (no npm global installs)
-RUN bun add --global "opencode-ai@${OPENCODE_VERSION}" "oxlint@${OXLINT_VERSION}" "oxfmt@${OXFMT_VERSION}"
+RUN bun add --global --trust "opencode-ai@${OPENCODE_VERSION}" "oxlint@${OXLINT_VERSION}" "oxfmt@${OXFMT_VERSION}"
 
 # Smoke check toolchain in-image
 RUN /bin/bash -lc '. "${NVM_DIR}/nvm.sh" && node --version' && \

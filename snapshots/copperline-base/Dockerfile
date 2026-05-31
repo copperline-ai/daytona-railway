@@ -25,4 +25,13 @@ RUN curl -fsSL "https://github.com/railwayapp/cli/releases/download/v${RAILWAY_V
       | tar -xz -C /usr/local/bin railway && \
     chmod +x /usr/local/bin/railway
 
+# Coding agent: opencode (node 22 + npm already present in base image)
+RUN npm install -g opencode-ai && \
+    npm cache clean --force
+
+# Default opencode config: Vercel AI Gateway provider + DeepSeek 3.2 / MiniMax 2.5.
+# API key is supplied at runtime via the AI_GATEWAY_API_KEY env var (never baked in).
+COPY opencode.json /home/daytona/.config/opencode/opencode.json
+RUN chown -R daytona:daytona /home/daytona/.config
+
 USER daytona

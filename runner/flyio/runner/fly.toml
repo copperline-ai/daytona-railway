@@ -17,10 +17,18 @@ primary_region = 'ord'
   min_machines_running = 1
   processes = ['app']
 
+[[files]]
+  guest_path = '/root/.docker/config.json'
+  secret_name = 'GHCR_DOCKER_CONFIG_JSON'
+
+[[files]]
+  guest_path = '/home/daytona/.docker/config.json'
+  secret_name = 'GHCR_DOCKER_CONFIG_JSON'
+
 [[mounts]]
   source = "docker_data"
   destination = "/var/lib/docker"
-  initial_size = "50gb"
+  initial_size = "25gb"
 
 [[vm]]
   cpu_kind = 'performance'

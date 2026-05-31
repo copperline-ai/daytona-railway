@@ -19,6 +19,18 @@ staticClients:
     name: 'Daytona'
     public: true
 
+oauth2:
+  skipApprovalScreen: true
+  responseTypes: ["code"]
+
+expiry:
+  signingKeys: 6h
+  idTokens: 24h
+  refreshTokens:
+    reuseInterval: 3s
+    validIfNotUsedFor: 2160h
+    absoluteLifetime: 8760h
+
 enablePasswordDB: true
 staticPasswords:
   - email: '$DEX_ADMIN_EMAIL'

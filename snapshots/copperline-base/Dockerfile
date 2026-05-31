@@ -5,8 +5,10 @@ USER root
 ARG GH_VERSION=2.93.0
 ARG INFISICAL_VERSION=0.38.0
 
-# GitHub CLI
-RUN curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.deb" \
+# git (gh dependency) + GitHub CLI
+RUN apt-get update && apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/* && \
+    curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.deb" \
       -o /tmp/gh.deb && \
     dpkg -i /tmp/gh.deb && \
     rm /tmp/gh.deb

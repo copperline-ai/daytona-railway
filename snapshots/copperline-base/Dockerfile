@@ -62,13 +62,42 @@ RUN curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERS
     apt-get purge -y --auto-remove unzip && \
     rm -rf /var/lib/apt/lists/*
 
-# Coding agent and format/lint tools via bun (no npm global installs)
-RUN bun add --global --trust "opencode-ai@${OPENCODE_VERSION}" "oxlint@${OXLINT_VERSION}" "oxfmt@${OXFMT_VERSION}"
+# Lint/format tools via bun. bun stays available for general use; we don't route
+# the agent CLIs through it. Symlinked into /usr/local/bin (see PATH note below).
+RUN bun add --global --trust "oxlint@${OXLINT_VERSION}" "oxfmt@${OXFMT_VERSION}" && \
+    ln -sf "${BUN_INSTALL}/bin/oxlint" /usr/local/bin/oxlint && \
+    ln -sf "${BUN_INSTALL}/bin/oxfmt" /usr/local/bin/oxfmt
+
+# Agent CLIs (opencode / claude / cursor `agent`), installed the SAME way Paperclip
+# installs them in sandboxes, and placed on /usr/local/bin so `command -v` resolves
+# them in Daytona's login-shell exec. (That exec sources /etc/profile, which resets
+# PATH to /usr/local/bin:/usr/bin:/bin... — dropping /opt/bun/bin and ~/.local/bin.)
+# Pre-baking means Paperclip's runtime install probe no-ops. Secrets such as
+# AI_GATEWAY_API_KEY are injected at runtime via sandbox env, never baked in.
+
+# opencode — official installer (single binary; the npm opencode-ai package is large/slow)
+RUN curl -fsSL https://opencode.ai/install | bash && \
+    if [ -x /root/.opencode/bin/opencode ]; then install -m 0755 /root/.opencode/bin/opencode /usr/local/bin/opencode; fi && \
+    rm -rf /root/.opencode && \
+    command -v opencode
+
+# Anthropic Claude Code — npm global (matches Paperclip's claude-local adapter)
+RUN bash -lc '. "${NVM_DIR}/nvm.sh" && npm install -g @anthropic-ai/claude-code' && \
+    ln -sf "$(bash -lc '. "${NVM_DIR}/nvm.sh" >/dev/null 2>&1 && command -v claude')" /usr/local/bin/claude && \
+    command -v claude
+
+# Cursor agent — official installer (command name: agent; not published on npm)
+RUN curl https://cursor.com/install -fsS | bash && \
+    AGENT_BIN="$([ -x /root/.cursor/bin/agent ] && echo /root/.cursor/bin/agent || echo /root/.local/bin/agent)" && \
+    install -m 0755 "$AGENT_BIN" /usr/local/bin/agent && \
+    rm -rf /root/.cursor /root/.local/bin/agent && \
+    command -v agent
 
 # Smoke check toolchain in-image
-RUN /bin/bash -lc '. "${NVM_DIR}/nvm.sh" && node --version' && \
+RUN bash -lc '. "${NVM_DIR}/nvm.sh" && node --version && claude --version' && \
     bun --version && \
     opencode --version && \
+    agent --version && \
     oxlint --version && \
     oxfmt --version && \
     python3 --version && \

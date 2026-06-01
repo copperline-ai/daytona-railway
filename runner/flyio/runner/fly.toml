@@ -9,6 +9,11 @@ primary_region = 'ord'
 [build]
   dockerfile = 'Dockerfile'
 
+# v2 runner self-registers apiUrl/proxyUrl as http://{RUNNER_DOMAIN}:{API_PORT}.
+# RUNNER_DOMAIN is set to copperline-daytona-runner.internal (Fly 6PN), so the
+# daytona-proxy (also on Fly, copperline-daytona-proxy) reaches the runner privately
+# at :3003 over WireGuard. The public 443/80 service below is kept only for debugging;
+# the API is pull-based (v2) so it never needs to reach the runner directly.
 [http_service]
   internal_port = 3003
   force_https = true

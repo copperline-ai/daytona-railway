@@ -50,6 +50,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push ${{ matrix.name }}
+        id: build
         if: steps.select.outputs.run == 'true'
         uses: docker/build-push-action@v6
         with:
@@ -57,6 +58,11 @@ jobs:
           file: snapshots/${{ matrix.name }}/Dockerfile
           push: true
           tags: ${{ matrix.image }}
+          build-args: |
+            SOURCE_COMMIT=${{ github.sha }}
+          # Push a plain single-manifest image (no attestation index) so the
+          # digest output is the image manifest Daytona pulls by @sha256.
+          provenance: false
 
       - name: Install Daytona CLI
         if: steps.select.outputs.run == 'true'
@@ -82,18 +88,39 @@ jobs:
         env:
           DAYTONA_API_URL: ${{ secrets.DAYTONA_API_URL }}
           DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
+          SNAPSHOT_NAME: ${{ matrix.image }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
         shell: bash
         run: |
           set -euo pipefail
 
-          snapshot="${{ matrix.image }}"
+          # Keep the snapshot NAME stable (consumers create sandboxes from it),
+          # but pin its source IMAGE to the immutable digest we just pushed —
+          # never the mutable tag. Resolving the tag is what let Daytona's builder
+          # bake a stale cached layer under the fresh digest's name, shipping
+          # sandboxes without opencode on PATH. A digest ref is content-addressed,
+          # so the source can never be stale, and the SOURCE_COMMIT label makes the
+          # digest unique per push — every push gets a brand-new derived image.
+          if [[ -z "${IMAGE_DIGEST:-}" ]]; then
+            echo "::error::build step did not emit an image digest"
+            exit 1
+          fi
+          repo="${SNAPSHOT_NAME%:*}"
+          image_ref="${repo}@${IMAGE_DIGEST}"
+          echo "Snapshot name : ${SNAPSHOT_NAME}"
+          echo "Pinned image  : ${image_ref}"
+
+          # Snapshots are immutable once created; delete first so each push
+          # re-registers the stable name against the new digest.
+          daytona snapshot delete "$SNAPSHOT_NAME" >/dev/null 2>&1 || true
+
           max_attempts=6
           attempt=1
           delay=2
 
           while (( attempt <= max_attempts )); do
-            echo "Registering snapshot '$snapshot' (attempt ${attempt}/${max_attempts})"
-            output="$(daytona snapshot create "$snapshot" --image "$snapshot" 2>&1)" && {
+            echo "Registering snapshot '$SNAPSHOT_NAME' -> '$image_ref' (attempt ${attempt}/${max_attempts})"
+            output="$(daytona snapshot create "$SNAPSHOT_NAME" --image "$image_ref" 2>&1)" && {
               echo "$output"
               exit 0
             }
@@ -101,12 +128,12 @@ jobs:
             echo "$output"
 
             if grep -qi "already exists" <<< "$output"; then
-              echo "Snapshot already exists, deleting stale record and retrying..."
-              daytona snapshot delete "$snapshot" || true
+              echo "Snapshot still present, deleting and retrying..."
+              daytona snapshot delete "$SNAPSHOT_NAME" || true
             fi
 
             if (( attempt == max_attempts )); then
-              echo "::error::Failed to register snapshot '$snapshot' after ${max_attempts} attempts."
+              echo "::error::Failed to register snapshot '$SNAPSHOT_NAME' after ${max_attempts} attempts."
               exit 1
             fi
 

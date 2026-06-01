@@ -11,6 +11,11 @@ ARG BUN_VERSION=1.2.15
 ARG OPENCODE_VERSION=latest
 ARG OXLINT_VERSION=latest
 ARG OXFMT_VERSION=latest
+# Git commit of this build. Consumed only by the final LABEL so it doesn't bust
+# any earlier layer cache — but it makes every commit produce a unique image
+# digest. The snapshot pipeline pins Daytona to that digest, so a stale layer can
+# never be reused under a fresh digest's name (the opencode-missing regression).
+ARG SOURCE_COMMIT=unknown
 
 ENV BUN_INSTALL=/opt/bun
 ENV NVM_DIR=/usr/local/nvm
@@ -119,3 +124,7 @@ RUN /bin/bash -lc '. "${NVM_DIR}/nvm.sh" && \
 RUN chown -R daytona:daytona /home/daytona/.config
 
 USER daytona
+
+# Last layer: stamps the build commit so every push yields a unique image digest.
+LABEL org.opencontainers.image.revision="${SOURCE_COMMIT}"
+LABEL org.opencontainers.image.source="https://github.com/copperline-ai/daytona-railway"

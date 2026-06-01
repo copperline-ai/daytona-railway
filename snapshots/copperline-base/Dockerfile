@@ -86,18 +86,18 @@ RUN bash -lc '. "${NVM_DIR}/nvm.sh" && npm install -g @anthropic-ai/claude-code'
     ln -sf "$(bash -lc '. "${NVM_DIR}/nvm.sh" >/dev/null 2>&1 && command -v claude')" /usr/local/bin/claude && \
     command -v claude
 
-# Cursor agent — official installer (command name: agent; not published on npm)
-RUN curl https://cursor.com/install -fsS | bash && \
-    AGENT_BIN="$([ -x /root/.cursor/bin/agent ] && echo /root/.cursor/bin/agent || echo /root/.local/bin/agent)" && \
-    install -m 0755 "$AGENT_BIN" /usr/local/bin/agent && \
-    rm -rf /root/.cursor /root/.local/bin/agent && \
-    command -v agent
+# Cursor agent — official installer. The installed `agent` is a wrapper that resolves
+# a bundled node *relative to itself* (~/.cursor/bin/node), so it can't just be copied
+# to /usr/local/bin. Install the whole tree into the daytona user's HOME; Paperclip's
+# cursor adapter prepends ~/.cursor/bin (and ~/.local/bin) to PATH at runtime.
+RUN HOME=/home/daytona bash -c 'curl https://cursor.com/install -fsS | bash' && \
+    chown -R daytona:daytona /home/daytona/.cursor /home/daytona/.local 2>/dev/null; \
+    HOME=/home/daytona /home/daytona/.cursor/bin/agent --version
 
-# Smoke check toolchain in-image
+# Smoke check toolchain in-image (agent verified in its own step above)
 RUN bash -lc '. "${NVM_DIR}/nvm.sh" && node --version && claude --version' && \
     bun --version && \
     opencode --version && \
-    agent --version && \
     oxlint --version && \
     oxfmt --version && \
     python3 --version && \

@@ -1,4 +1,0 @@
-# Contains bcrypt hash of the registry password — keep out of git
-htpasswd
-# Plaintext registry credentials used for DB/env wiring
-.registry-creds.env

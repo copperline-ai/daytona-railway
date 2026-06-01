@@ -92,7 +92,7 @@ RUN bash -lc '. "${NVM_DIR}/nvm.sh" && npm install -g @anthropic-ai/claude-code'
 # cursor adapter prepends ~/.cursor/bin (and ~/.local/bin) to PATH at runtime.
 RUN HOME=/home/daytona bash -c 'curl https://cursor.com/install -fsS | bash' && \
     chown -R daytona:daytona /home/daytona/.cursor /home/daytona/.local 2>/dev/null; \
-    HOME=/home/daytona /home/daytona/.cursor/bin/agent --version
+    HOME=/home/daytona /home/daytona/.local/bin/agent --version
 
 # Smoke check toolchain in-image (agent verified in its own step above)
 RUN bash -lc '. "${NVM_DIR}/nvm.sh" && node --version && claude --version' && \

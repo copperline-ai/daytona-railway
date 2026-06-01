@@ -34,4 +34,3 @@ primary_region = 'ord'
   cpu_kind = 'performance'
   cpus = 2
   memory_mb = 4096
-  privileged = true

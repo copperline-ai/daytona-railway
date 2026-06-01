@@ -1,3 +1,5 @@
 logs
 logs/*
 .DS_Store
+pg-migrate/.env
+pg-migrate/dump/

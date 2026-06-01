@@ -77,6 +77,11 @@ RUN /bin/bash -lc '. "${NVM_DIR}/nvm.sh" && node --version' && \
 # Default opencode config: Vercel AI Gateway provider + DeepSeek 3.2 / MiniMax 2.5.
 # API key is supplied at runtime via the AI_GATEWAY_API_KEY env var (never baked in).
 COPY opencode.json /home/daytona/.config/opencode/opencode.json
+
+# Superpowers skills plugin for OpenCode (pre-installed for zero-latency startup)
+RUN /bin/bash -lc '. "${NVM_DIR}/nvm.sh" && \
+    npm install "superpowers@git+https://github.com/obra/superpowers.git" --prefix /home/daytona/.config/opencode'
+
 RUN chown -R daytona:daytona /home/daytona/.config
 
 USER daytona

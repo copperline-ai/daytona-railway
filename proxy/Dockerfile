@@ -1,1 +1,1 @@
-FROM daytonaio/daytona-proxy
+FROM daytonaio/daytona-proxy:v0.171.0

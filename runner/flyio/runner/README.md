@@ -32,9 +32,16 @@ JSON
 
 2. Set Fly secret:
 
+   > **IMPORTANT:** Fly base64-**decodes** a secret's value when projecting it to a
+   > `[[files]]` guest path. The secret must therefore contain the **base64-encoded**
+   > config JSON, *not* the raw JSON. Setting raw JSON makes the machine fail to start:
+   > flyd destroys it ~7s after creation, right after "Opening encrypted volume" and
+   > before the entrypoint runs (no app logs), and `fly deploy` then times out waiting
+   > for a machine that is already gone.
+
 ```bash
 fly secrets set \
-  GHCR_DOCKER_CONFIG_JSON="$(cat /tmp/ghcr-auth/config.json)" \
+  GHCR_DOCKER_CONFIG_JSON="$(base64 < /tmp/ghcr-auth/config.json | tr -d '\n')" \
   --app copperline-daytona-runner
 ```
 

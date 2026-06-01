@@ -1,9 +1,0 @@
-# Real secrets / per-machine config — never commit
-.env
-
-# Registry auth (bcrypt hash)
-registry/htpasswd
-
-# Cloudflare named-tunnel config + credentials
-cloudflared/config.yml
-cloudflared/*.json

@@ -57,11 +57,15 @@ jobs:
           context: snapshots/${{ matrix.name }}
           file: snapshots/${{ matrix.name }}/Dockerfile
           push: true
-          tags: ${{ matrix.image }}
+          # Push the friendly rolling tag AND an immutable per-commit tag. The
+          # per-commit tag is what the snapshot pins to (see register step).
+          tags: |
+            ${{ matrix.image }}
+            ${{ matrix.image }}-${{ github.sha }}
           build-args: |
             SOURCE_COMMIT=${{ github.sha }}
-          # Push a plain single-manifest image (no attestation index) so the
-          # digest output is the image manifest Daytona pulls by @sha256.
+          # Push a plain single-manifest image (no attestation index) so Daytona
+          # pulls a normal image, not an attestation manifest list.
           provenance: false
 
       - name: Install Daytona CLI
@@ -89,26 +93,23 @@ jobs:
           DAYTONA_API_URL: ${{ secrets.DAYTONA_API_URL }}
           DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
           SNAPSHOT_NAME: ${{ matrix.image }}
-          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_REF: ${{ matrix.image }}-${{ github.sha }}
         shell: bash
         run: |
           set -euo pipefail
 
           # Keep the snapshot NAME stable (consumers create sandboxes from it),
-          # but pin its source IMAGE to the immutable digest we just pushed —
-          # never the mutable tag. Resolving the tag is what let Daytona's builder
-          # bake a stale cached layer under the fresh digest's name, shipping
-          # sandboxes without opencode on PATH. A digest ref is content-addressed,
-          # so the source can never be stale, and the SOURCE_COMMIT label makes the
-          # digest unique per push — every push gets a brand-new derived image.
-          if [[ -z "${IMAGE_DIGEST:-}" ]]; then
-            echo "::error::build step did not emit an image digest"
-            exit 1
-          fi
-          repo="${SNAPSHOT_NAME%:*}"
-          image_ref="${repo}@${IMAGE_DIGEST}"
+          # but pin its source IMAGE to the per-commit tag we just pushed — never
+          # the rolling :copperline-base tag. Resolving the rolling tag is what let
+          # Daytona's builder reuse a stale locally-cached layer under the fresh
+          # digest's name, shipping sandboxes without opencode on PATH. A tag the
+          # builder has never seen forces a fresh pull; the SOURCE_COMMIT label
+          # makes its digest unique, so every push yields a brand-new derived
+          # image. (Daytona rejects @sha256 digest refs — "invalid reference
+          # format" — so a per-commit tag is used instead of the digest.)
           echo "Snapshot name : ${SNAPSHOT_NAME}"
-          echo "Pinned image  : ${image_ref}"
+          echo "Pinned image  : ${IMAGE_REF}"
+          image_ref="${IMAGE_REF}"
 
           # Snapshots are immutable once created; delete first so each push
           # re-registers the stable name against the new digest.

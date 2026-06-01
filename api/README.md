@@ -1,7 +1,7 @@
 # Daytona API (Railway)
 
 Thin wrapper that pins the Daytona API to a specific version
-(`daytonaio/daytona-api:0.171.0`) and lets Railway build/deploy it from this
+(`daytonaio/daytona-api:v0.171.0`) and lets Railway build/deploy it from this
 repo instead of pulling the upstream Daytona repo directly.
 
 This is the same pattern as [`../migrations`](../migrations) — that service

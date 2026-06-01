@@ -1,1 +1,1 @@
-FROM daytonaio/daytona-api:0.171.0
+FROM daytonaio/daytona-api:v0.171.0

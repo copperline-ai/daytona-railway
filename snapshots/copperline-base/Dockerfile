@@ -16,15 +16,20 @@ ENV BUN_INSTALL=/opt/bun
 ENV NVM_DIR=/usr/local/nvm
 ENV PATH=${BUN_INSTALL}/bin:${PATH}
 
-# Base tooling + git (gh dependency)
+# Base tooling + git (gh dependency). Also generate the en_US.UTF-8 locale — the base
+# image sets LANG/LC_ALL=en_US.UTF-8 but ships no locale data, so every bash invocation
+# prints "setlocale: cannot change locale (en_US.UTF-8)" (noise in command output).
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
       curl \
       git \
       jq \
+      locales \
       python3 \
       python3-pip \
       python3-venv && \
+    sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
+    locale-gen && \
     rm -rf /var/lib/apt/lists/* && \
     curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.deb" \
       -o /tmp/gh.deb && \
